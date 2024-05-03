@@ -1,0 +1,645 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "Sports Teams Rankings.ipynb",
+      "provenance": [],
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/bb5892lh/Bennett_Lineralgebra/blob/main/Sports_Teams_Rankings\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "TwGBRAD9R6W4"
+      },
+      "source": [
+        "# Load the preliminary code"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "NaP8xyCfRrUg"
+      },
+      "source": [
+        "import matplotlib.pyplot as plt\n",
+        "from sympy import Poly\n",
+        "import sympy as sym\n",
+        "import numpy as np\n",
+        "from numpy import c_\n",
+        "\n",
+        "# We'll specify that x and t are variables:\n",
+        "x, t = sym.symbols('x, t')\n",
+        "\n",
+        "ll = \"loaded\""
+      ],
+      "execution_count": 17,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "CANB9fuMRyBP",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "c63291f2-fac7-4b81-bb43-9f416e449767"
+      },
+      "source": [
+        "lll = \" correctly!\"\n",
+        "\n",
+        "def rref(matrix):\n",
+        "    A = np.array(matrix, dtype=np.float64)\n",
+        "\n",
+        "    r = 0 #row\n",
+        "    c = 0 #column\n",
+        "\n",
+        "    (maxr, maxc) = A.shape\n",
+        "\n",
+        "    prev_row_pivot = -1   # The previous row with a leading term:\n",
+        "    tmp_pivot_row = -1\n",
+        "    this_pivot_row = -1\n",
+        "\n",
+        "    for c in range(maxc):  # go through each column\n",
+        "      tmp_pivot_row = -1  # reset the tmp pivot row\n",
+        "      this_pivot_row = -1  # reset this pivot row\n",
+        "      for r in range(maxr):  # Find the leading term in this column below prev_row_pivot\n",
+        "        if ((r > prev_row_pivot) and (A[r][c] != 0.0)):\n",
+        "          tmp_pivot_row = r  # find the new pivot row\n",
+        "      if (tmp_pivot_row > -1):  # we found a candidate for the leading term:\n",
+        "        #swap row this_pivot_row with (prev_row_pivot + 1)\n",
+        "        A[[tmp_pivot_row, prev_row_pivot+1]] = A[[prev_row_pivot + 1, tmp_pivot_row]]\n",
+        "        #set this_pivot_row to prev_row_pivot+1\n",
+        "        this_pivot_row = prev_row_pivot + 1\n",
+        "        #Now, normalize the row based on the pivot value:\n",
+        "        A[ this_pivot_row ] = A[ this_pivot_row ] / A[ this_pivot_row ][c]\n",
+        "        #Then, use this row to force 0's above and below the pivot entry:\n",
+        "        #subtract multiples of of the this_pivot_row row from the others\n",
+        "        for r_ in range(len(A)):\n",
+        "            if r_ != this_pivot_row:\n",
+        "                A[r_] = A[r_] - A[this_pivot_row] * A[r_][c] / A[this_pivot_row][c]\n",
+        "        prev_row_pivot = this_pivot_row\n",
+        "    return A\n",
+        "\n",
+        "\n",
+        "def is_singular(matrix):\n",
+        "  singular = True\n",
+        "  notsingular = False\n",
+        "\n",
+        "  (mr, mc) = matrix.shape\n",
+        "\n",
+        "  return_value = notsingular\n",
+        "  if (mc - np.linalg.linalg.matrix_rank(matrix) > 0) :\n",
+        "    return_value = singular\n",
+        "  return return_value\n",
+        "\n",
+        "\n",
+        "\n",
+        "\n",
+        "print(\">> The page \", ll, lll)"
+      ],
+      "execution_count": 18,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            ">> The page  loaded  correctly!\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "dCB31bhvTulU"
+      },
+      "source": [
+        "# Ranking Teams based on games\n",
+        "\n",
+        "From our packet, we saw there were five games:\n",
+        "\n",
+        "Home  | Away\n",
+        "------|------\n",
+        "Winona State 16 | Sioux Falls 15\n",
+        "Winona State 34 | Augustana 20\n",
+        "Sioux Falls 51  | Augustana 13\n",
+        "Duluth 28       |  Augustana 17\n",
+        "Winona State 17 | Duluth 37\n",
+        "\n",
+        "Let's encode this system into a matrix.\n",
+        "\n",
+        "The unknown rankings are $r_w, r_s, r_a, r_d$.\n",
+        "\n",
+        "The system looks like $M \\vec{x} = \\vec{b}$, or\n",
+        "\n",
+        "$$\n",
+        "\\left( \\begin{array}{cccc} 1 & -1 & 0 & 0 \\\\ 1 & 0 & -1 & 0 \\\\ 0 & 1 & -1 & 0 \\\\ 0 & 0 & -1 & 1 \\\\ -1 & 0  & 0 & 1 \\\\ \\end{array} \\right) \\, \\left( \\begin{array}{c} r_w \\\\ r_s \\\\ r_a \\\\ r_d \\\\ \\end{array} \\right) = \\left( \\begin{array}{c} 1 \\\\ 14 \\\\ 38 \\\\ 11 \\\\ 20 \\\\ \\end{array} \\right)$$\n",
+        "\n",
+        "We'll solve this system using least squares\n",
+        "$$M^T I M \\vec{x} = M^T I \\vec{b} $$\n",
+        "\n",
+        "$$ \\vec{x} = \\left( M^T I M  \\right)^{-1} M^T I \\vec{b} $$\n",
+        "\n",
+        "\n",
+        "\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "zZOH_e5mViMs",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "68f33154-bcb7-4524-f014-6dadd9daf187"
+      },
+      "source": [
+        "# create the matrix:\n",
+        "M = np.matrix([[1, 0, 0, 0, -1, 0, 0],\n",
+        "               [-1, 0, 0, 0, 0, 1, 0],\n",
+        "               [-1, 0, 0, 0, 1, 0, 0],\n",
+        "               [1, 0, 0, -1, 0, 0, 0],\n",
+        "               [1, -1, 0, 0, 0, 0, 0],\n",
+        "               [1, 0, -1, 0, 0, 0, 0],\n",
+        "               [1, 0, 0, 0, 0, 0, -1],\n",
+        "               [-1, 0, 0, 0, 0, 1, 0],\n",
+        "               [1, -1, 0, 0, 0, 0, 0],\n",
+        "               [0, -1, 0, 0, 0, 1, 0],\n",
+        "               [0, -1, 0, 0, 0, 0, 1],\n",
+        "               [0, 1, 0, -1, 0, 0, 0],\n",
+        "               [0, 1, -1, 0, 0, 0, 0],\n",
+        "               [0, -1, 0, 0, 0, 1, 0],\n",
+        "               [0, 1, -1, 0, 0, 0, 0],\n",
+        "               [0, 1, 0, 0, 0, 0, -1],\n",
+        "               [0, 1, 0, 0, -1, 0, 0],\n",
+        "               [0, 0, 1, -1, 0, 0, 0],\n",
+        "               [0, 0, -1, 0, 0, 0, 1],\n",
+        "               [0, 0, 1, 0, -1, 0, 0],\n",
+        "               [0, 0, -1, 0, 0, -1, 0],\n",
+        "               [0, 0, -1, 1, 0, 0, 0],\n",
+        "               [0, 0, -1, 0, 1, 0, 0],\n",
+        "               [0, 0, 0, -1, 0, 0, 1],\n",
+        "               [0, 0, 0, 1, 0, -1, 0],\n",
+        "               [0, 0, 0, 1, -1, 0, 0],\n",
+        "               [0, 0, 0, 1, 0, 0, -1],\n",
+        "               [0, 0, 0, -1, 1,  0, 0],\n",
+        "               [0, 0, 0, 0, 1, -1, 0],\n",
+        "               [0, 0, 0, 0, -1, 0, 1],\n",
+        "               [0, 0, 0, 0, -1, 1, 0],\n",
+        "               [0, 0, 0,  0, 0, 1, -1],\n",
+        "               [0, 0, 0, 0, 0, -1, 1]])\n",
+        "\n",
+        "\n",
+        "# create the vector for the right hand side:\n",
+        "pts = np.matrix([[30], [5], [5], [3], [10], [8], [8], [6], [12], [19], [11], [18], [9], [14], [15], [2], [7], [11], [2], [9], [8], [18], [24], [16], [16], [7], [12], [12], [4], [8], [9], [8], [7]])\n",
+        "\n",
+        "#Make sure the system looks appropriate:\n",
+        "print(np.c_[M,pts])"
+      ],
+      "execution_count": 19,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[[ 1  0  0  0 -1  0  0 30]\n",
+            " [-1  0  0  0  0  1  0  5]\n",
+            " [-1  0  0  0  1  0  0  5]\n",
+            " [ 1  0  0 -1  0  0  0  3]\n",
+            " [ 1 -1  0  0  0  0  0 10]\n",
+            " [ 1  0 -1  0  0  0  0  8]\n",
+            " [ 1  0  0  0  0  0 -1  8]\n",
+            " [-1  0  0  0  0  1  0  6]\n",
+            " [ 1 -1  0  0  0  0  0 12]\n",
+            " [ 0 -1  0  0  0  1  0 19]\n",
+            " [ 0 -1  0  0  0  0  1 11]\n",
+            " [ 0  1  0 -1  0  0  0 18]\n",
+            " [ 0  1 -1  0  0  0  0  9]\n",
+            " [ 0 -1  0  0  0  1  0 14]\n",
+            " [ 0  1 -1  0  0  0  0 15]\n",
+            " [ 0  1  0  0  0  0 -1  2]\n",
+            " [ 0  1  0  0 -1  0  0  7]\n",
+            " [ 0  0  1 -1  0  0  0 11]\n",
+            " [ 0  0 -1  0  0  0  1  2]\n",
+            " [ 0  0  1  0 -1  0  0  9]\n",
+            " [ 0  0 -1  0  0 -1  0  8]\n",
+            " [ 0  0 -1  1  0  0  0 18]\n",
+            " [ 0  0 -1  0  1  0  0 24]\n",
+            " [ 0  0  0 -1  0  0  1 16]\n",
+            " [ 0  0  0  1  0 -1  0 16]\n",
+            " [ 0  0  0  1 -1  0  0  7]\n",
+            " [ 0  0  0  1  0  0 -1 12]\n",
+            " [ 0  0  0 -1  1  0  0 12]\n",
+            " [ 0  0  0  0  1 -1  0  4]\n",
+            " [ 0  0  0  0 -1  0  1  8]\n",
+            " [ 0  0  0  0 -1  1  0  9]\n",
+            " [ 0  0  0  0  0  1 -1  8]\n",
+            " [ 0  0  0  0  0 -1  1  7]]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "s_r-ljCGWB18",
+        "outputId": "a7e62f80-69b6-4072-966b-e462a8186614",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "source": [
+        "# Generate the transpose of M:\n",
+        "MT = M.transpose()\n",
+        "\n",
+        "print(\"The Transpose of M is:\")\n",
+        "print(MT)\n",
+        "\n",
+        "# and find MT*M and MT*pts:\n",
+        "print(\"\\n\")\n",
+        "print(\"MT * M is: \")\n",
+        "MTM = MT * M\n",
+        "print(MTM)\n",
+        "\n",
+        "print(\"\\n\")\n",
+        "print(\"MT * pts is:\")\n",
+        "MTpts = MT * pts\n",
+        "print(MTpts)\n"
+      ],
+      "execution_count": 20,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "The Transpose of M is:\n",
+            "[[ 1 -1 -1  1  1  1  1 -1  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0\n",
+            "   0  0  0  0  0  0  0  0  0]\n",
+            " [ 0  0  0  0 -1  0  0  0 -1 -1 -1  1  1 -1  1  1  1  0  0  0  0  0  0  0\n",
+            "   0  0  0  0  0  0  0  0  0]\n",
+            " [ 0  0  0  0  0 -1  0  0  0  0  0  0 -1  0 -1  0  0  1 -1  1 -1 -1 -1  0\n",
+            "   0  0  0  0  0  0  0  0  0]\n",
+            " [ 0  0  0 -1  0  0  0  0  0  0  0 -1  0  0  0  0  0 -1  0  0  0  1  0 -1\n",
+            "   1  1  1 -1  0  0  0  0  0]\n",
+            " [-1  0  1  0  0  0  0  0  0  0  0  0  0  0  0  0 -1  0  0 -1  0  0  1  0\n",
+            "   0 -1  0  1  1 -1 -1  0  0]\n",
+            " [ 0  1  0  0  0  0  0  1  0  1  0  0  0  1  0  0  0  0  0  0 -1  0  0  0\n",
+            "  -1  0  0  0 -1  0  1  1 -1]\n",
+            " [ 0  0  0  0  0  0 -1  0  0  0  1  0  0  0  0 -1  0  0  1  0  0  0  0  1\n",
+            "   0  0 -1  0  0  1  0 -1  1]]\n",
+            "\n",
+            "\n",
+            "MT * M is: \n",
+            "[[ 9 -2 -1 -1 -2 -2 -1]\n",
+            " [-2 10 -2 -1 -1 -2 -2]\n",
+            " [-1 -2  9 -2 -2  1 -1]\n",
+            " [-1 -1 -2  9 -2 -1 -2]\n",
+            " [-2 -1 -2 -2 10 -2 -1]\n",
+            " [-2 -2  1 -1 -2 10 -2]\n",
+            " [-1 -2 -1 -2 -1 -2  9]]\n",
+            "\n",
+            "\n",
+            "MT * pts is:\n",
+            "[[ 55]\n",
+            " [-15]\n",
+            " [-64]\n",
+            " [ -7]\n",
+            " [-25]\n",
+            " [ 26]\n",
+            " [ 14]]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "x38H0uPwbhpF"
+      },
+      "source": [
+        "If $M^T M$ has an inverse, then we can use it.  But, if $M^T M$ is singular, then it doesn't have an inverse.  In this situation, we need to replace every entry in one row (say the bottom row) of $M^T M$ and $M^T \\vec{pts}$ with 1's.  (This knocks the system out of *not* having an inverse, so it will now have an inverse.)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "1ebWW4rZaopa",
+        "outputId": "8d473255-5112-4333-fdd1-07969e126c84",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "source": [
+        "#  Check if MTM is singular\n",
+        "is_singular(MT*M)"
+      ],
+      "execution_count": 21,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "False"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 21
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Hs_ZR78AbziT",
+        "outputId": "fb418efc-ec2e-4934-8357-c600b84527e1",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "source": [
+        "# If MTM is singular, then adjust one row of MTM and MT pts to be just 1's:\n",
+        "\n",
+        "#MTM[3] is the entire 4th row of MTM,\n",
+        "#so MTM[3] = 1 will put 1's in MTM's 4th row.\n",
+        "\n",
+        "MTM[3] = 1\n",
+        "MTpts[3] = 1\n",
+        "\n",
+        "print(\"MTM is now: \")\n",
+        "print(MTM)\n",
+        "\n",
+        "print(\"and MTpts is now:\")\n",
+        "print(MTpts)\n",
+        "\n",
+        "print(\"Is our modified MTM singular?\")\n",
+        "is_singular(MTM)"
+      ],
+      "execution_count": 22,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "MTM is now: \n",
+            "[[ 9 -2 -1 -1 -2 -2 -1]\n",
+            " [-2 10 -2 -1 -1 -2 -2]\n",
+            " [-1 -2  9 -2 -2  1 -1]\n",
+            " [ 1  1  1  1  1  1  1]\n",
+            " [-2 -1 -2 -2 10 -2 -1]\n",
+            " [-2 -2  1 -1 -2 10 -2]\n",
+            " [-1 -2 -1 -2 -1 -2  9]]\n",
+            "and MTpts is now:\n",
+            "[[ 55]\n",
+            " [-15]\n",
+            " [-64]\n",
+            " [  1]\n",
+            " [-25]\n",
+            " [ 26]\n",
+            " [ 14]]\n",
+            "Is our modified MTM singular?\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "False"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 22
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "48WK4ZH7WRxH",
+        "outputId": "ee7a2a43-60bc-4956-8a70-d2b99e735c01",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "source": [
+        "#Find our solution using the inverse of MTM:\n",
+        "\n",
+        "#First, find the inverse of MTM:\n",
+        "MTMI = np.linalg.inv(MTM)\n",
+        "\n",
+        "print(\"The inverse of MTM is:\")\n",
+        "print(MTMI)\n",
+        "\n",
+        "#Now, use the inverse of MTM to solve for the rankings:\n",
+        "\n",
+        "print(\"\\n\")\n",
+        "print(\"The solution are rankings:\")\n",
+        "MTMI * MTpts"
+      ],
+      "execution_count": 23,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "The inverse of MTM is:\n",
+            "[[ 1.01989243e-01  9.37676582e-03 -1.14139947e-03  1.40201693e-01\n",
+            "   9.28029188e-03  1.04354733e-02  1.06121334e-03]\n",
+            " [ 8.50474163e-03  9.23030084e-02  6.26830029e-03  1.38936256e-01\n",
+            "   6.26454157e-04  7.45480446e-03  8.44209622e-03]\n",
+            " [-1.16376389e-02 -3.36719109e-03  9.66819229e-02  1.23157128e-01\n",
+            "  -2.33040946e-03 -2.77318726e-02 -1.14045979e-02]\n",
+            " [-1.02032468e-01 -9.99313406e-02 -7.54225747e-02  1.89749205e-01\n",
+            "  -9.14873650e-02 -8.86996440e-02 -9.28837314e-02]\n",
+            " [-2.44317121e-05 -7.70475967e-03  2.02971147e-04  1.43015725e-01\n",
+            "   8.39699152e-02 -7.58009530e-04 -8.42142323e-03]\n",
+            " [ 1.14121154e-02  9.16940949e-03 -1.78852662e-02  1.20064951e-01\n",
+            "   8.20654945e-03  9.76579385e-02  1.05914604e-02]\n",
+            " [-8.21156109e-03  1.54107723e-04 -8.70395405e-03  1.44875041e-01\n",
+            "  -8.26543614e-03  1.64130989e-03  9.26149825e-02]]\n",
+            "\n",
+            "\n",
+            "The solution are rankings:\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "matrix([[ 5.73618011],\n",
+              "        [-0.88266639],\n",
+              "        [-7.47648103],\n",
+              "        [-0.4154005 ],\n",
+              "        [-1.99260283],\n",
+              "        [ 4.2370703 ],\n",
+              "        [ 1.79390034]])"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 23
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "YOTdLT4-R-1h"
+      },
+      "source": [
+        "#  Game Data  - Fall Sports\n",
+        "\n",
+        "Find the game data for the four teams in the NFC North and NFC South.\n",
+        "\n",
+        "The teams are:\n",
+        "\n",
+        "* **NFC North:**  Green Bay Packers, Chicago Bears, Detroit Lions, Minnesota Vikings\n",
+        "* **NFC South:**  Atlanta Falcons, Carolina Panthers, New Orleans Saints, Tampa Bay Buccaneers\n",
+        "\n",
+        "\n",
+        "It may be helpful to do a google search to find the data.\n",
+        "\n",
+        "Be sure to create your matrix on the handout, then enter the data for the system below.\n",
+        "\n",
+        "# Game Data - Spring Sports\n",
+        "\n",
+        "Find the game data for the seven teams in the Western Division for Men's Big Ten Basketball.\n",
+        "\n",
+        "**The teams:**  Wisconsin, Minnesota, Iowa, Illinois, Nebraska, Purdue, and Northewstern.\n",
+        "\n",
+        "I've provided **most** of the data, but you have to do a Google search to find the scores for the last two teams.\n",
+        "\n",
+        "Be sure to create your matrix on the handout, then enter the data for the system below.\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "RrMkbXIC5v_X"
+      },
+      "source": [
+        "# create the matrix:\n",
+        "M = np.matrix([[1, -1, 0, 0],\n",
+        "               [1, 0, -1, 0],\n",
+        "               [0, 1, -1, 0],\n",
+        "               [0, 0, -1, 1],\n",
+        "               [-1, 0, 0, 1]])\n",
+        "\n",
+        "\n",
+        "# create the vector for the right hand side:\n",
+        "pts = np.matrix([[1], [14], [38], [11], [20]])\n",
+        "\n",
+        "#Make sure the system looks appropriate:\n",
+        "print(np.c_[M,pts])"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "TLLB3Ebe587M"
+      },
+      "source": [
+        "# Generate the transpose of M:\n",
+        "MT = M.transpose()\n",
+        "\n",
+        "print(\"The Transpose of M is:\")\n",
+        "print(MT)\n",
+        "\n",
+        "# and find MT*M and MT*pts:\n",
+        "print(\"\\n\")\n",
+        "print(\"MT * M is: \")\n",
+        "MTM = MT * M\n",
+        "print(MTM)\n",
+        "\n",
+        "print(\"\\n\")\n",
+        "print(\"MT * pts is:\")\n",
+        "MTpts = MT * pts\n",
+        "print(MTpts)\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "VXqKSDj06BVa"
+      },
+      "source": [
+        "#  Check if MTM is singular\n",
+        "is_singular(MT*M)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "5E2eXRT76MQh"
+      },
+      "source": [
+        "# Careful - you might not need to do this!\n",
+        "# Be sure to check whether MTM is singular on the previous line.\n",
+        "\n",
+        "# If MTM is singular, then adjust one row of MTM and MT pts to be just 1's:\n",
+        "\n",
+        "#MTM[3] is the entire 4th row of MTM,\n",
+        "#so MTM[3] = 1 will put 1's in MTM's 4th row.\n",
+        "\n",
+        "MTM[3] = 1\n",
+        "MTpts[3] = 1\n",
+        "\n",
+        "print(\"MTM is now: \")\n",
+        "print(MTM)\n",
+        "\n",
+        "print(\"and MTpts is now:\")\n",
+        "print(MTpts)\n",
+        "\n",
+        "print(\"Is our modified MTM singular?\")\n",
+        "is_singular(MTM)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "UkDKmNba6YHi"
+      },
+      "source": [
+        "#Find our solution using the inverse of MTM:\n",
+        "\n",
+        "#First, find the inverse of MTM:\n",
+        "MTMI = np.linalg.inv(MTM)\n",
+        "\n",
+        "print(\"The inverse of MTM is:\")\n",
+        "print(MTMI)\n",
+        "\n",
+        "#Now, use the inverse of MTM to solve for the rankings:\n",
+        "\n",
+        "print(\"\\n\")\n",
+        "print(\"The solution are rankings:\")\n",
+        "MTMI * MTpts"
+      ],
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
